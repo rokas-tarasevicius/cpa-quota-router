@@ -1,0 +1,39 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.9", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m unittest -v
+
+  e2e:
+    runs-on: ubuntu-latest
+    env:
+      CPA_VERSION: 8.0.44
+      CPA_SHA256: 3957c34fe4a95a37f5997ab63d78dca431fa1521997d7c2ab3bdfe169ad89307
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Download CLIProxyAPI
+        run: |
+          curl -fsSL -o cpa.tar.gz \
+            "https://github.com/router-for-me/CLIProxyAPI/releases/download/v${CPA_VERSION}/CLIProxyAPI_${CPA_VERSION}_linux_amd64.tar.gz"
+          echo "${CPA_SHA256}  cpa.tar.gz" | sha256sum -c -
+          mkdir cpa && tar -xzf cpa.tar.gz -C cpa
+      - run: python e2e/run_e2e.py cpa/cli-proxy-api

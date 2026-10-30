@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "kind": "sequence",
+  "title": "What the router does every five minutes",
+  "caption": "It asks Anthropic how much of each account is used, ranks them, and writes only the priorities that changed.",
+  "participants": [
+    { "id": "router", "label": "Quota router", "icon": "infra/cron" },
+    { "id": "proxy", "label": "CLIProxyAPI", "icon": "infra/load-balancer" },
+    { "id": "files", "label": "Account files", "icon": "infra/file-store" },
+    { "id": "anthropic", "label": "Anthropic", "icon": "vendors/anthropic" }
+  ],
+  "steps": [
+    { "from": "router", "to": "proxy", "label": "Which Claude accounts?" },
+    { "from": "proxy", "to": "router", "label": "Files and priorities", "style": "dashed" },
+    { "from": "router", "to": "files", "label": "Reads each token" },
+    { "from": "router", "to": "anthropic", "label": "Usage, per account" },
+    { "from": "anthropic", "to": "router", "label": "Use and reset times", "style": "dashed" },
+    { "note": "Ranks them: soonest weekly reset first, nearly full ones lower.", "at": "router" },
+    { "from": "router", "to": "proxy", "label": "Sets changed priorities" },
+    { "from": "proxy", "to": "files", "label": "Saves priority" },
+    { "note": "New sessions now bind to the top account.", "at": "proxy" },
+    { "gap": "five minutes later" }
+  ]
+}

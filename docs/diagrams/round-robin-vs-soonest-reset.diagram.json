@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "kind": "compare",
+  "title": "Round robin against soonest reset first",
+  "caption": "Round robin gives every account a third of new sessions. The router sends them to the account whose weekly quota resets soonest.",
+  "before": {
+    "title": "Round robin",
+    "nodes": [
+      { "id": "sessions", "label": "New sessions", "shape": "pill", "icon": "vendors/claude", "at": [0, 1] },
+      { "id": "proxy", "label": "Proxy", "note": "takes turns", "icon": "infra/load-balancer", "at": [1, 1] },
+      { "id": "a", "label": "Account A", "note": "resets tonight", "icon": "people/person", "at": [2, 0] },
+      { "id": "b", "label": "Account B", "note": "resets Wednesday", "icon": "people/person", "at": [2, 1] },
+      { "id": "c", "label": "Account C", "note": "used up, sends 429s", "icon": "people/person", "at": [2, 2], "status": "muted" }
+    ],
+    "edges": [
+      { "from": "sessions", "to": "proxy" },
+      { "from": "proxy", "to": "a", "label": "1 in 3" },
+      { "from": "proxy", "to": "b", "label": "1 in 3" },
+      { "from": "proxy", "to": "c", "label": "1 in 3" }
+    ]
+  },
+  "after": {
+    "title": "Soonest reset first",
+    "nodes": [
+      { "id": "sessions", "label": "New sessions", "shape": "pill", "icon": "vendors/claude", "at": [0, 1] },
+      { "id": "proxy", "label": "Proxy", "note": "highest priority", "icon": "infra/load-balancer", "at": [1, 1], "status": "changed" },
+      { "id": "router", "label": "Quota router", "note": "every 5 minutes", "icon": "infra/cron", "at": [1, 2], "status": "new" },
+      { "id": "a", "label": "Account A", "note": "priority 20", "icon": "people/person", "at": [2, 0] },
+      { "id": "b", "label": "Account B", "note": "priority 10", "icon": "people/person", "at": [2, 1] },
+      { "id": "c", "label": "Account C", "note": "priority -10", "icon": "people/person", "at": [2, 2], "status": "muted" }
+    ],
+    "edges": [
+      { "from": "sessions", "to": "proxy" },
+      { "from": "proxy", "to": "a", "label": "every new session" },
+      { "from": "proxy", "to": "b", "label": "when A is busy", "style": "dashed" },
+      { "from": "router", "to": "proxy", "label": "sets priority", "status": "new" }
+    ]
+  }
+}

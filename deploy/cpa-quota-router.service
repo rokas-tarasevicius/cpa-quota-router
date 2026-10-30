@@ -1,0 +1,16 @@
+[Unit]
+Description=Soonest-reset-first routing for CLIProxyAPI Claude accounts
+After=cliproxyapi.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/cliproxyapi/quota-router
+ExecStart=/usr/bin/env python3 -I %h/cliproxyapi/quota-router/quota_router.py --management-key-file %h/cliproxyapi/quota-router.key
+Restart=always
+RestartSec=30
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "kind": "steps",
+  "title": "What the proxy does with each request",
+  "caption": "Priority only matters the first time a session is seen. After that the session stays on its account, so its prompt cache keeps working.",
+  "steps": [
+    { "id": "arrives", "label": "Request arrives", "note": "with a session id", "icon": "infra/api" },
+    { "id": "bound", "label": "Already bound?", "icon": "business/decision", "gate": true },
+    { "id": "pick", "label": "Picks top account", "note": "highest priority, free", "icon": "infra/load-balancer", "focus": true },
+    { "id": "bind", "label": "Binds the session", "note": "1h, renewed on use", "icon": "infra/lock" },
+    { "id": "send", "label": "Sends to Anthropic", "note": "same account each turn", "icon": "vendors/anthropic" }
+  ],
+  "edges": [
+    { "from": "bound", "to": "pick", "label": "no" },
+    { "from": "bound", "to": "send", "label": "yes" }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "kind": "grid",
+  "title": "How the router fits next to CLIProxyAPI",
+  "caption": "Claude Code talks to the proxy as before. The router sits beside it on the same host and only ever changes one number per account.",
+  "look": { "groups": "zone" },
+  "nodes": [
+    { "id": "claude", "label": "Claude Code", "note": "laptops and agents", "icon": "vendors/claude", "at": [0, 0] },
+    { "id": "proxy", "label": "CLIProxyAPI", "note": "port 8317", "icon": "infra/load-balancer", "at": [1, 0] },
+    { "id": "files", "label": "Account files", "note": "~/.cli-proxy-api", "mono": true, "icon": "infra/file-store", "at": [1, 1] },
+    { "id": "router", "label": "Quota router", "note": "every 5 minutes", "icon": "infra/cron", "at": [2, 1], "focus": true },
+    { "id": "messages", "label": "Messages API", "note": "api.anthropic.com", "mono": true, "icon": "vendors/anthropic", "at": [3, 0] },
+    { "id": "usage", "label": "Usage endpoint", "note": "/api/oauth/usage", "mono": true, "icon": "vendors/anthropic", "at": [3, 1] }
+  ],
+  "groups": [
+    { "id": "host", "label": "Proxy host", "note": "systemd user services", "contains": ["proxy", "files", "router"] }
+  ],
+  "edges": [
+    { "from": "claude", "to": "proxy", "label": "over Tailscale" },
+    { "from": "proxy", "to": "messages", "label": "one account per session" },
+    { "from": "proxy", "to": "files", "label": "saves priority" },
+    { "from": "router", "to": "files", "label": "reads tokens" },
+    { "from": "router", "to": "usage", "label": "reads usage" },
+    { "from": "router", "to": "proxy", "label": "sets priority" }
+  ]
+}

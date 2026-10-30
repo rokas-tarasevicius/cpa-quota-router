@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "timeline",
+  "title": "Where new sessions go this week",
+  "caption": "The pool on Friday 30 October 2026. A is drained before it resets tonight, then B, while C sits out until its reset.",
+  "periods": ["Fri 30", "Sat 31", "Sun 1", "Mon 2", "Tue 3", "Wed 4"],
+  "streams": ["Account A", "Account B", "Account C"],
+  "items": [
+    { "id": "a-now", "label": "Takes new sessions", "note": "96% used", "icon": "infra/cron", "from": "Fri 30", "stream": "Account A", "focus": true },
+    { "id": "a-spare", "label": "Fresh, held back", "note": "used when B is busy", "icon": "business/clock", "from": "Sat 31", "to": "Wed 4", "stream": "Account A", "status": "muted" },
+    { "id": "b-wait", "label": "Second choice", "note": "19% used", "icon": "business/clock", "from": "Fri 30", "stream": "Account B", "status": "muted" },
+    { "id": "b-now", "label": "Takes new sessions", "note": "until it resets", "icon": "infra/cron", "from": "Sat 31", "to": "Wed 4", "stream": "Account B" },
+    { "id": "c-out", "label": "Used up, skipped", "note": "priority -10", "icon": "business/risk", "from": "Fri 30", "to": "Sun 1", "stream": "Account C", "status": "muted" },
+    { "id": "c-spare", "label": "Fresh, held back", "note": "used when B is busy", "icon": "business/clock", "from": "Mon 2", "to": "Wed 4", "stream": "Account C", "status": "muted" },
+    { "id": "a-reset", "label": "A resets", "from": "Fri 30", "milestone": true },
+    { "id": "c-reset", "label": "C resets", "from": "Mon 2", "milestone": true },
+    { "id": "b-reset", "label": "B resets", "from": "Wed 4", "milestone": true }
+  ]
+}

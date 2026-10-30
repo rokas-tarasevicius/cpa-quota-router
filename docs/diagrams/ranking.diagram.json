@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "kind": "tree",
+  "title": "How the router places one account",
+  "caption": "Three questions put every account in a tier. Inside a tier, the account that resets soonest goes first.",
+  "root": "read",
+  "nodes": [
+    { "id": "read", "label": "Reads its usage", "note": "Anthropic usage", "icon": "infra/metrics" },
+    { "id": "leave", "label": "Leaves it alone", "note": "keeps its priority", "icon": "business/flag", "parent": "read", "branch": "read failed" },
+    { "id": "weekly", "label": "Week used up?", "shape": "pill", "icon": "business/decision", "parent": "read", "branch": "read" },
+    { "id": "bottom", "label": "Bottom", "note": "priority -10", "icon": "business/risk", "parent": "weekly", "branch": "99% or more" },
+    { "id": "five", "label": "5h nearly full?", "shape": "pill", "icon": "business/decision", "parent": "weekly", "branch": "no" },
+    { "id": "later", "label": "After ready ones", "note": "soonest 5h reset", "icon": "business/clock", "parent": "five", "branch": "90% or more" },
+    { "id": "ready", "label": "Ready", "note": "soonest weekly reset", "icon": "business/approval", "parent": "five", "branch": "no", "focus": true }
+  ]
+}
