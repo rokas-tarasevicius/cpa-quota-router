@@ -45,12 +45,25 @@ weekly quota resets soonest, so quota that is about to expire gets used before i
 
 ## Quick start
 
-On the machine that runs CLIProxyAPI, as the same user:
+Check these first:
+
+- **The proxy.** CLIProxyAPI v8 must be running as your user under systemd on Linux, with
+  `routing.session-affinity: true` in its config. Without affinity, the router still runs and logs a
+  normal ranking, but every request follows the ranking and running sessions lose their prompt
+  cache. Nothing warns you about this.
+- **The management key, in plaintext.** If the config only shows a `$2a$…` hash, see
+  [Running it](docs/running-it.md#install).
+- **Python 3.9 or newer.** Only the standard library is used.
+- **Access to this repository.** It's private, so you need to be added as a collaborator.
+
+Then, on the machine that runs CLIProxyAPI, as the same user:
 
 ```sh
 git clone git@github.com:rokas-tarasevicius/cpa-quota-router.git ~/cliproxyapi/quota-router
-# The plaintext management key (what you put in management.secret-key before the proxy hashed it):
-install -m 600 /dev/stdin ~/cliproxyapi/quota-router.key <<< 'your-management-key'
+# or: gh repo clone rokas-tarasevicius/cpa-quota-router ~/cliproxyapi/quota-router
+
+# Paste the plaintext management key, press Enter, then Ctrl-D. It stays out of your shell history.
+(umask 077 && cat > ~/cliproxyapi/quota-router.key)
 
 # Look before you touch anything: prints the ranking and changes nothing.
 python3 ~/cliproxyapi/quota-router/quota_router.py \
@@ -60,12 +73,12 @@ mkdir -p ~/.config/systemd/user
 cp ~/cliproxyapi/quota-router/deploy/cpa-quota-router.service ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now cpa-quota-router
+loginctl enable-linger "$USER"     # start at boot without a login; may need sudo
 journalctl --user -u cpa-quota-router -f
 ```
 
-You need Python 3.9 or newer (it uses only the standard library) and CLIProxyAPI v8 with
-`routing.session-affinity: true`. [Running it](docs/running-it.md) has the details, the options
-and how to turn it off again.
+[Running it](docs/running-it.md) has the details, the options, how to turn it off again, and the
+setups these steps don't cover (a proxy in Docker, no systemd, and so on).
 
 ## Tests
 
@@ -80,8 +93,8 @@ API, that they are saved to disk without touching the tokens, and that the proxy
 sessions to the top account while keeping running sessions where they were. With
 session affinity turned off, that last check fails, so the test does catch it.
 
-CI runs both on every push, the end-to-end test against the pinned CLIProxyAPI release
-(`.github/workflows/test.yml`).
+CI runs both on every push, on the self-hosted agentbox runners. The end-to-end test runs against
+the pinned CLIProxyAPI release (`.github/workflows/test.yml`).
 
 ## Layout
 

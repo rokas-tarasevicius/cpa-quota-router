@@ -2,11 +2,13 @@
 
 ## Install
 
-On the machine that runs CLIProxyAPI, logged in as the user the proxy runs as:
+On the machine that runs CLIProxyAPI, logged in as the user the proxy runs as. The repository is
+private, so you need to be a collaborator, with an SSH key or `gh` signed in:
 
 ```sh
 git clone git@github.com:rokas-tarasevicius/cpa-quota-router.git ~/cliproxyapi/quota-router
-install -m 600 /dev/stdin ~/cliproxyapi/quota-router.key <<< 'your-management-key'
+# Paste the plaintext management key, press Enter, then Ctrl-D. It stays out of your shell history.
+(umask 077 && cat > ~/cliproxyapi/quota-router.key)
 ```
 
 **The management key** is the plaintext value of `management.secret-key` in the proxy config. If
@@ -39,7 +41,10 @@ systemctl --user enable --now cpa-quota-router
 
 User services only run while someone is logged in, unless lingering is on. If
 `loginctl show-user $USER -p Linger` says `no`, run `loginctl enable-linger $USER` so the proxy and
-the router start at boot.
+the router start at boot. Without polkit that needs `sudo`.
+
+If you switched to the proxy's user with `sudo -iu`, `systemctl --user` can't find a user manager.
+Use `machinectl shell <user>@` or log in as that user instead.
 
 ## Check it's working
 
@@ -85,6 +90,16 @@ shows as `keep`.
 To change a flag, add it to `ExecStart` in `~/.config/systemd/user/cpa-quota-router.service`, then
 run `systemctl --user daemon-reload && systemctl --user restart cpa-quota-router`.
 
+To set an environment variable from the table, use a drop-in, which survives copying the unit again:
+
+```sh
+systemctl --user edit cpa-quota-router
+# in the editor:
+#   [Service]
+#   Environment=CPA_MANAGEMENT_URL=http://127.0.0.1:8318/v0/management
+systemctl --user restart cpa-quota-router
+```
+
 ## Turn it off
 
 Stop the service first, so it doesn't set the priorities again, then clear them:
@@ -102,6 +117,22 @@ The proxy is back on plain round robin straight away. Running sessions keep thei
 ```sh
 cd ~/cliproxyapi/quota-router && git pull && systemctl --user restart cpa-quota-router
 ```
+
+The unit in `~/.config/systemd/user/` is a copy. If the pull changed `deploy/cpa-quota-router.service`,
+copy it again, put back any flags you added to `ExecStart`, and run `systemctl --user daemon-reload`.
+
+## Setups these steps don't cover
+
+The steps above assume CLIProxyAPI runs on Linux, under systemd, as your user, outside Docker. If
+yours doesn't:
+
+| Your proxy | What to do |
+| --- | --- |
+| Runs in Docker | The management API reports each account file's path *inside the container*, so a router on the host can't open it. Run the router where those paths exist, for example in the same container or in one with the same volume mounted at the same path. |
+| Runs as a system service or as another user | Run the router as a user that can read the account files. `After=cliproxyapi.service` in the unit only orders it after a *user* unit of that name. The router retries anyway, so the order isn't critical. |
+| Listens on another port, or only over TLS | Pass `--management-url`. |
+| Host has no systemd (macOS, WSL1) | There's no unit for launchd or the like. Run `quota_router.py` under whatever keeps services up there. It loops on its own and stops cleanly on SIGTERM. |
+| Python comes from pyenv or conda | The unit runs `/usr/bin/env python3` with the user manager's PATH, which may not include it. Put the interpreter's full path in `ExecStart`. |
 
 ## Before upgrading CLIProxyAPI
 
