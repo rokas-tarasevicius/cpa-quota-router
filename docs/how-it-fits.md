@@ -70,6 +70,6 @@ This is how it runs on `agentbox`, the machine behind our pool:
 | --- | --- |
 | Proxy | CLIProxyAPI v8.0.44, `cliproxyapi.service` (systemd user), config at `~/cliproxyapi/config.yaml`, listening on `127.0.0.1:8317` and published to the tailnet with Tailscale Serve |
 | Routing | `strategy: round-robin`, `session-affinity: true`, `session-affinity-ttl: 1h`, `session-affinity-rebind-on: quota` |
-| Accounts | three Claude subscription logins in `~/.cli-proxy-api`, plus one Codex login (not ranked) |
+| Accounts | three Claude subscription logins in `~/.cli-proxy-api`, plus two Codex logins (not ranked) |
 | Router | `~/cliproxyapi/quota-router/quota_router.py`, `cpa-quota-router.service` (systemd user), started on 30 October 2026 |
 | Key | `~/cliproxyapi/quota-router.key`, mode 600 |

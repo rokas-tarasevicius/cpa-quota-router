@@ -119,8 +119,8 @@ upgrading:
 python3 e2e/run_e2e.py /path/to/new/cli-proxy-api
 ```
 
-When it passes, bump `CPA_VERSION` and `CPA_SHA256` in `.github/workflows/test.yml` (the hash is in
-the release's `checksums.txt`).
+When it passes, bump `CPA_VERSION` and the two `CPA_SHA256_*` hashes in `.github/workflows/test.yml`
+(the hashes are in the release's `checksums.txt`).
 
 ## Troubleshooting
 
