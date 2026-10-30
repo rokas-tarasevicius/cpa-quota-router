@@ -46,16 +46,16 @@ account files and aren't disabled. It never:
 
 | Setting | Why |
 | --- | --- |
-| CLIProxyAPI v8 | The management API calls and the `priority` field it uses. Tested against v8.0.44. |
+| CLIProxyAPI v8 | The management API calls and the `priority` field it uses. Tested against v8.0.44 and v8.0.48. |
 | `routing.session-affinity: true` | Without it, the proxy sends every request, not just new sessions, to the top account. Every turn would move when the ranking changes, and prompt caches would be lost. |
-| `routing.session-affinity-rebind-on: quota` | Recommended: sessions stay put through brief errors and only move when their account is really out. |
-| `management.secret-key` | The router needs the plaintext key. The config file may only hold its bcrypt hash, which won't do. |
+| `routing.session-affinity-rebind-on: quota` | Recommended: sessions stay put through brief errors and only move when their account is really out. The default, `any`, works but moves more sessions. |
+| `management.secret-key` | The router needs the plaintext key. The config file may only hold its bcrypt hash, which won't do. Left empty, as the installer leaves it, the management API is off and the router gets HTTP 404. |
 | `routing.strategy` | Any value works. Round robin still decides between accounts that have equal priority. |
 
 ## Security
 
-- **The management key** sits in a file only its owner can read (`install -m 600`). The router reads
-  it once at start. You can pass it in `CPA_MANAGEMENT_KEY` instead.
+- **The management key** sits in a file only its owner can read: the install steps create it under
+  `umask 077`. The router reads it once at start. You can pass it in `CPA_MANAGEMENT_KEY` instead.
 - **Access tokens** are read from the account files and sent only to `api.anthropic.com`, which the
   proxy already does with them. They are never logged.
 - **Logs** show masked addresses (`acc***t-a@example.com`), priorities and percentages, and nothing

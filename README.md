@@ -51,12 +51,15 @@ Check these first:
   `routing.session-affinity: true` in its config. Without affinity, the router still runs and logs a
   normal ranking, but every request follows the ranking and running sessions lose their prompt
   cache. Nothing warns you about this.
-- **The management key, in plaintext.** If the config only shows a `$2a$…` hash, see
-  [Running it](docs/running-it.md#install).
+- **The management key, in plaintext.** If `management.secret-key` is empty (the installer's
+  default) or only shows a `$2a$…` hash, see [Running it](docs/running-it.md#install).
 - **Python 3.9 or newer.** Only the standard library is used.
 - **Access to this repository.** It's private, so you need to be added as a collaborator.
 
-Then, on the machine that runs CLIProxyAPI, as the same user:
+Then, on the machine that runs CLIProxyAPI, as the same user. If the proxy runs as a dedicated
+user that you manage with `sudo`, follow
+[When the proxy runs as its own user](docs/running-it.md#when-the-proxy-runs-as-its-own-user)
+instead.
 
 ```sh
 git clone git@github.com:rokas-tarasevicius/cpa-quota-router.git ~/cliproxyapi/quota-router
@@ -94,7 +97,7 @@ sessions to the top account while keeping running sessions where they were. With
 session affinity turned off, that last check fails, so the test does catch it.
 
 CI runs both on every push, on the self-hosted agentbox runners. The end-to-end test runs against
-the pinned CLIProxyAPI release (`.github/workflows/test.yml`).
+two pinned CLIProxyAPI releases: the one agentbox runs and the newest (`.github/workflows/test.yml`).
 
 ## Layout
 

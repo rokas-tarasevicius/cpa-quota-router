@@ -63,9 +63,9 @@ The router doesn't route requests itself. It relies on two things the proxy alre
 - **Sessions stick to an account.** Claude Code sends an `X-Claude-Code-Session-Id` header with
   every request. The first time the proxy sees a session, it binds that session to an account.
   Every later request in the session goes to the same account, whatever its priority, so Anthropic's
-  prompt cache for that conversation keeps working. A binding lasts an hour and the clock restarts
-  on every request, so a session that's in use keeps its account. Subagents use their parent's
-  account.
+  prompt cache for that conversation keeps working. A binding lasts for `session-affinity-ttl` (an
+  hour by default) and the clock restarts on every request, so a session that's in use keeps its
+  account. Subagents use their parent's account.
 - **New sessions go to the highest priority.** To bind a new session, the proxy picks the account
   with the highest `priority` among those that aren't cooling down after a 429. Accounts with equal
   priority share new sessions round robin, which is why everything was evenly spread before: every
@@ -73,7 +73,9 @@ The router doesn't route requests itself. It relies on two things the proxy alre
 
 With `session-affinity-rebind-on: quota`, a session only moves off its account when that account
 can't serve it any more: it is out of quota, its login has failed, it doesn't support the model, or
-it is permanently unavailable. Brief errors don't move a session.
+it is permanently unavailable. Brief errors don't move a session. The default, `any`, also moves a
+session on brief errors such as timeouts and 5xx responses, to whichever account the proxy fails
+over to.
 
 So `priority` is a lever that changes **where new sessions start** and nothing else. The router
 only has to set it well.
