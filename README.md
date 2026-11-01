@@ -11,7 +11,8 @@ weekly quota resets soonest, so quota that is about to expire gets used before i
 
 ## The short version
 
-- **Two limits per account.** Every Claude subscription has a 5-hour window and a weekly window.
+- **One or two limits per account.** Every Claude subscription has a weekly window. Some still have
+  a 5-hour window too, but Anthropic has dropped it on others, and a pool can mix both kinds.
   Whatever is unused when the weekly window resets is lost.
 - **Round robin wastes it.** CLIProxyAPI's round robin spreads sessions evenly, so every account
   drains at the same pace. They all run out at about the same time, which shows up as a burst of

@@ -5,10 +5,12 @@ ranks the accounts, and what happens when something goes wrong.
 
 ## 1. The problem
 
-Each Claude subscription in the pool has two usage limits:
+Each Claude subscription in the pool has one or two usage limits:
 
-- a **5-hour window**, which caps how fast you can burn through it;
 - a **weekly window**, which caps how much you get in total. It resets seven days after it started.
+- on some accounts, a **5-hour window**, which caps how fast you can burn through it. Anthropic has
+  dropped it on others: their usage reports `"five_hour": null` (as of 1 November 2026). A pool
+  can mix both kinds.
 
 Each account's weekly window started at a different time, so they reset at different times. When
 an account's weekly window resets, its usage goes back to zero and **whatever it hadn't used is
@@ -111,7 +113,8 @@ INFO set acc***t-c@example.com: priority -10 (weekly-full), weekly 100% resets i
 ```
 
 `set` means the priority changed and `keep` means it was already right. A dry run says
-`would set`. Email addresses are masked in the log.
+`would set`. Email addresses are masked in the log. An account without a 5-hour limit ends its line
+with `no 5h limit` instead of a 5-hour percentage.
 
 ## 5. How it ranks
 
@@ -124,8 +127,8 @@ Each account goes into one of three tiers:
 
 | Tier | When | Order inside the tier | Priority |
 | --- | --- | --- | --- |
-| **ready** | under 99% of the week and under 90% of the 5 hours | soonest weekly reset first; unstarted windows last | highest numbers |
-| **5h-full** | 90% or more of the 5-hour window used | soonest 5-hour reset first | below every ready account |
+| **ready** | under 99% of the week and, if it has one, under 90% of the 5 hours | soonest weekly reset first; unstarted windows last | highest numbers |
+| **5h-full** | 90% or more of the 5-hour window used; only accounts that have one | soonest 5-hour reset first | below every ready account |
 | **weekly-full** | 99% or more of the week used | doesn't matter | -10 |
 
 Then the usable accounts (ready, then 5h-full) are numbered from the top in steps of 10. With four
@@ -135,7 +138,11 @@ them below the default of 0.
 A few details:
 
 - **Ties.** Ready accounts with the same reset time are ordered by how little of the 5-hour window
-  they have used, then by name, so the order is stable from one run to the next.
+  they have used (none, for an account without one), then by name, so the order is stable from one
+  run to the next.
+- **Accounts without a 5-hour limit.** They are ranked on the weekly reset alone, in the same order
+  as everyone else, and never drop to 5h-full. Nothing pulls new sessions off them before the week
+  runs out, so the soonest-resetting one takes every new session until it is used up.
 - **Passed resets.** A window whose reset time has already passed counts as empty, even if
   Anthropic hasn't caught up yet.
 - **Why the 5-hour ceiling exists.** An account close to its 5-hour limit is about to start

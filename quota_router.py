@@ -12,6 +12,10 @@ Ranking, highest priority first:
   2. accounts near their 5-hour limit, soonest 5-hour reset first;
   3. accounts whose weekly quota is used up (negative priority).
 
+Not every plan has a 5-hour limit. An account whose usage reports
+"five_hour": null (or leaves it out) is ranked on its weekly window alone and
+never lands in tier 2.
+
 Usage comes from Anthropic's OAuth usage endpoint (the call behind Claude
 Code's /usage). Priorities are written through the CLIProxyAPI management API,
 which persists them alongside the proxy's own token refreshes. Sessions that are
@@ -35,7 +39,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Optional
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 DEFAULT_MANAGEMENT_URL = "http://127.0.0.1:8317/v0/management"
 DEFAULT_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
@@ -65,7 +69,7 @@ class Window:
 
 @dataclass(frozen=True)
 class Usage:
-    five_hour: Window
+    five_hour: Optional[Window]  # None when the account has no 5-hour limit
     weekly: Window
 
 
@@ -102,9 +106,10 @@ def parse_window(raw: object) -> Window:
 
 
 def parse_usage(body: dict) -> Usage:
-    if "five_hour" not in body or "seven_day" not in body:
-        raise ValueError("usage response has no five_hour/seven_day windows")
-    return Usage(parse_window(body["five_hour"]), parse_window(body["seven_day"]))
+    if "seven_day" not in body:
+        raise ValueError("usage response has no seven_day window")
+    five_hour = body.get("five_hour")
+    return Usage(parse_window(five_hour) if isinstance(five_hour, dict) else None, parse_window(body["seven_day"]))
 
 
 def used(window: Window, now: datetime) -> float:
@@ -121,10 +126,14 @@ def reset_key(window: Window, now: datetime) -> datetime:
     return window.resets_at
 
 
+def five_hour_used(usage: Usage, now: datetime) -> float:
+    return 0.0 if usage.five_hour is None else used(usage.five_hour, now)
+
+
 def tier(usage: Usage, now: datetime, five_hour_ceiling: float, weekly_ceiling: float) -> str:
     if used(usage.weekly, now) >= weekly_ceiling:
         return WEEKLY_FULL
-    if used(usage.five_hour, now) >= five_hour_ceiling:
+    if five_hour_used(usage, now) >= five_hour_ceiling:
         return FIVE_HOUR_FULL
     return READY
 
@@ -142,7 +151,7 @@ def plan(
         if account.usage is not None:
             tiers[tier(account.usage, now, five_hour_ceiling, weekly_ceiling)].append(account)
 
-    tiers[READY].sort(key=lambda a: (reset_key(a.usage.weekly, now), used(a.usage.five_hour, now), a.name))
+    tiers[READY].sort(key=lambda a: (reset_key(a.usage.weekly, now), five_hour_used(a.usage, now), a.name))
     tiers[FIVE_HOUR_FULL].sort(key=lambda a: (reset_key(a.usage.five_hour, now), reset_key(a.usage.weekly, now), a.name))
     tiers[WEEKLY_FULL].sort(key=lambda a: (reset_key(a.usage.weekly, now), a.name))
 
@@ -169,9 +178,10 @@ def describe(placement: Placement, now: datetime) -> str:
     usage = placement.account.usage
     weekly_reset = usage.weekly.resets_at
     until = "not started" if weekly_reset is None else f"{(weekly_reset - now).total_seconds() / 3600:.1f}h"
+    five_hour = "no 5h limit" if usage.five_hour is None else f"5h {used(usage.five_hour, now):.0f}%"
     return (
         f"{placement.account.label}: priority {placement.priority} ({placement.tier}), "
-        f"weekly {used(usage.weekly, now):.0f}% resets in {until}, 5h {used(usage.five_hour, now):.0f}%"
+        f"weekly {used(usage.weekly, now):.0f}% resets in {until}, {five_hour}"
     )
 
 
@@ -240,8 +250,13 @@ def collect(management: Management, usage_reader: Callable[[str], Usage]) -> lis
     return accounts
 
 
-def run_once(management: Management, usage_reader: Callable[[str], Usage], args: argparse.Namespace) -> list[Placement]:
-    now = datetime.now(timezone.utc)
+def run_once(
+    management: Management,
+    usage_reader: Callable[[str], Usage],
+    args: argparse.Namespace,
+    now: Optional[datetime] = None,
+) -> list[Placement]:
+    now = now or datetime.now(timezone.utc)
     placements = plan(collect(management, usage_reader), now, args.five_hour_ceiling, args.weekly_ceiling)
     for placement in placements:
         changed = placement.priority != placement.account.priority
@@ -278,7 +293,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--usage-url", default=os.environ.get("CPA_USAGE_URL", DEFAULT_USAGE_URL))
     parser.add_argument("--interval", type=float, default=300.0, help="seconds between re-rankings")
     parser.add_argument("--five-hour-ceiling", type=float, default=90.0,
-                        help="5-hour utilization (%%) at which an account drops below ready ones")
+                        help="5-hour utilization (%%) at which an account drops below ready ones; "
+                             "accounts without a 5-hour limit ignore it")
     parser.add_argument("--weekly-ceiling", type=float, default=99.0,
                         help="weekly utilization (%%) at which an account counts as used up")
     parser.add_argument("--once", action="store_true", help="re-rank once and exit")

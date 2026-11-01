@@ -70,7 +70,7 @@ shows as `keep`.
 | `--auth-dir` | | `~/.cli-proxy-api` | Where account files are, for entries the API lists without a full path |
 | `--usage-url` | `CPA_USAGE_URL` | `https://api.anthropic.com/api/oauth/usage` | The usage endpoint; the tests point it at a mock |
 | `--interval` | | `300` | Seconds between runs |
-| `--five-hour-ceiling` | | `90` | 5-hour use (%) at which an account drops below the ready ones |
+| `--five-hour-ceiling` | | `90` | 5-hour use (%) at which an account drops below the ready ones. Accounts without a 5-hour limit ignore it |
 | `--weekly-ceiling` | | `99` | Weekly use (%) at which an account counts as used up |
 | `--once` | | | Run once and exit |
 | `--dry-run` | | | Log the ranking, change nothing |
@@ -84,7 +84,7 @@ shows as `keep`.
   immediately by the proxy's own cooldown anyway, so going lower doesn't buy much.
 - **`--five-hour-ceiling`.** A lower value (say 80) moves new sessions off an account earlier, which
   leaves more of its 5-hour window for the sessions already on it. A higher value uses more of the
-  window before moving.
+  window before moving. It has no effect on accounts whose log line says `no 5h limit`.
 - **`--weekly-ceiling`.** At 99, an account at 99.5% counts as done rather than collecting new
   sessions it can barely start.
 

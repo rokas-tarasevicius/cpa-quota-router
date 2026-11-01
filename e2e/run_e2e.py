@@ -166,11 +166,12 @@ def part1_router(binary, mock_url, root):
         wait_for(lambda: len(priorities(proxy)) == 3, "three claude accounts")
 
         # The live pool on 2026-10-30: a nearly drained account resetting tonight,
-        # a fresh one resetting in 4.7 days, and one already used up.
+        # a fresh one resetting in 4.7 days, and one already used up. b and c have
+        # no 5-hour limit, reported as null (as on 2026-11-01) or left out.
         request("POST", f"{mock_url}/_control/usage", body={
             "tok-a": {"five_hour": window(3, 5), "seven_day": window(96, 12)},
-            "tok-b": {"five_hour": window(4, 5), "seven_day": window(19, 112)},
-            "tok-c": {"five_hour": window(0, None), "seven_day": window(100, 71)},
+            "tok-b": {"five_hour": None, "seven_day": window(19, 112)},
+            "tok-c": {"seven_day": window(100, 71)},
         })
         run_router(proxy, mock_url)
         expect(priorities(proxy) == {"a@e2e.test": 20, "b@e2e.test": 10, "c@e2e.test": -10},

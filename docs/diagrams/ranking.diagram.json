@@ -11,6 +11,6 @@
     { "id": "bottom", "label": "Bottom", "note": "priority -10", "icon": "business/risk", "parent": "weekly", "branch": "99% or more" },
     { "id": "five", "label": "5h nearly full?", "shape": "pill", "icon": "business/decision", "parent": "weekly", "branch": "no" },
     { "id": "later", "label": "After ready ones", "note": "soonest 5h reset", "icon": "business/clock", "parent": "five", "branch": "90% or more" },
-    { "id": "ready", "label": "Ready", "note": "soonest weekly reset", "icon": "business/approval", "parent": "five", "branch": "no", "focus": true }
+    { "id": "ready", "label": "Ready", "note": "soonest weekly reset", "icon": "business/approval", "parent": "five", "branch": "no, or no 5h limit", "focus": true }
   ]
 }

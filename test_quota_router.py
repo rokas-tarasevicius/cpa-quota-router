@@ -8,10 +8,12 @@ NOW = datetime(2026, 10, 30, 11, 0, tzinfo=timezone.utc)
 
 
 def usage(weekly, weekly_reset_hours, five_hour=0.0, five_hour_reset_hours=None):
+    """five_hour=None is an account with no 5-hour limit."""
     def at(hours):
         return None if hours is None else NOW + timedelta(hours=hours)
 
-    return qr.Usage(qr.Window(five_hour, at(five_hour_reset_hours)), qr.Window(weekly, at(weekly_reset_hours)))
+    five_hour_window = None if five_hour is None else qr.Window(five_hour, at(five_hour_reset_hours))
+    return qr.Usage(five_hour_window, qr.Window(weekly, at(weekly_reset_hours)))
 
 
 def account(name, usage_value, priority=0):
@@ -61,6 +63,41 @@ class PlanTest(unittest.TestCase):
             ],
         )
 
+    def test_accounts_without_a_five_hour_limit_rank_on_the_weekly_reset(self):
+        # The live pool on 2026-11-01, after Anthropic dropped the 5-hour window on these accounts.
+        placements = qr.plan(
+            [
+                account("fresh", usage(0, 131.8, five_hour=None)),
+                account("midweek", usage(34, 64.8, five_hour=None)),
+                account("spent", usage(100, 22.8, five_hour=None)),
+            ],
+            NOW,
+        )
+        self.assertEqual(
+            ranking(placements),
+            [("midweek", qr.READY, 20), ("fresh", qr.READY, 10), ("spent", qr.WEEKLY_FULL, -10)],
+        )
+
+    def test_mixed_pool_applies_the_five_hour_ceiling_only_where_there_is_one(self):
+        placements = qr.plan(
+            [
+                account("uncapped-later", usage(40, 30, five_hour=None)),
+                account("capped-sooner", usage(40, 10, five_hour=50, five_hour_reset_hours=3)),
+                account("capped-hot", usage(40, 5, five_hour=95, five_hour_reset_hours=1)),
+                account("uncapped-soonest", usage(98, 2, five_hour=None)),
+            ],
+            NOW,
+        )
+        self.assertEqual(
+            ranking(placements),
+            [
+                ("uncapped-soonest", qr.READY, 40),
+                ("capped-sooner", qr.READY, 30),
+                ("uncapped-later", qr.READY, 20),
+                ("capped-hot", qr.FIVE_HOUR_FULL, 10),
+            ],
+        )
+
     def test_windows_whose_reset_has_passed_count_as_empty(self):
         # Usage read before the reset is stale once the reset time is behind us.
         placements = qr.plan(
@@ -96,9 +133,39 @@ class ParseTest(unittest.TestCase):
         self.assertIsNone(parsed.five_hour.resets_at)
         self.assertEqual(parsed.weekly.utilization, 0.0)
 
+    def test_null_five_hour_means_no_five_hour_limit(self):
+        # Trimmed from a live response on 2026-11-01.
+        parsed = qr.parse_usage(
+            {
+                "five_hour": None,
+                "seven_day": {
+                    "utilization": 34.0,
+                    "resets_at": "2026-11-04T03:59:59.898437+00:00",
+                    "limit_dollars": None,
+                    "locked_reason": None,
+                },
+                "seven_day_opus": None,
+                "limits": [{"kind": "weekly_all", "group": "weekly", "percent": 34, "is_active": True}],
+            }
+        )
+        self.assertIsNone(parsed.five_hour)
+        self.assertEqual(parsed.weekly.utilization, 34.0)
+
+    def test_missing_five_hour_means_no_five_hour_limit(self):
+        parsed = qr.parse_usage({"seven_day": {"utilization": 10.0, "resets_at": "2026-11-04T04:00:00+00:00"}})
+        self.assertIsNone(parsed.five_hour)
+
     def test_rejects_a_response_without_windows(self):
         with self.assertRaises(ValueError):
             qr.parse_usage({"error": "nope"})
+
+
+class DescribeTest(unittest.TestCase):
+    def test_log_line_says_when_there_is_no_five_hour_limit(self):
+        uncapped = qr.Placement(account("a", usage(34, 64.8, five_hour=None)), qr.READY, 20)
+        capped = qr.Placement(account("b", usage(34, 64.8, five_hour=4, five_hour_reset_hours=2)), qr.READY, 10)
+        self.assertEqual(qr.describe(uncapped, NOW), "a: priority 20 (ready), weekly 34% resets in 64.8h, no 5h limit")
+        self.assertEqual(qr.describe(capped, NOW), "b: priority 10 (ready), weekly 34% resets in 64.8h, 5h 4%")
 
 
 class MaskTest(unittest.TestCase):
@@ -128,12 +195,12 @@ class RunOnceTest(unittest.TestCase):
         management = FakeManagement(
             [{"name": "a.json", "priority": 20}, {"name": "b.json"}]  # a already correct, b unset
         )
-        qr.run_once(management, lambda path: usages[path], self.args())
+        qr.run_once(management, lambda path: usages[path], self.args(), NOW)
         self.assertEqual(management.patches, [("b.json", 10)])
 
     def test_dry_run_writes_nothing(self):
         management = FakeManagement([{"name": "a.json"}])
-        qr.run_once(management, lambda path: usage(10, 10), self.args(dry_run=True))
+        qr.run_once(management, lambda path: usage(10, 10), self.args(dry_run=True), NOW)
         self.assertEqual(management.patches, [])
 
     def test_a_failed_usage_read_leaves_that_account_untouched(self):
@@ -144,13 +211,13 @@ class RunOnceTest(unittest.TestCase):
 
         management = FakeManagement([{"name": "broken.json", "priority": 30}, {"name": "ok.json"}])
         with self.assertLogs("cpa-quota-router", "WARNING"):
-            qr.run_once(management, reader, self.args())
+            qr.run_once(management, reader, self.args(), NOW)
         self.assertEqual(management.patches, [("ok.json", 10)])
 
     def test_reads_usage_from_the_listed_path(self):
         seen = []
         management = FakeManagement([{"name": "a.json", "path": "/auths/a.json"}])
-        qr.run_once(management, lambda path: seen.append(path) or usage(10, 10), self.args())
+        qr.run_once(management, lambda path: seen.append(path) or usage(10, 10), self.args(), NOW)
         self.assertEqual(seen, ["/auths/a.json"])
 
 
