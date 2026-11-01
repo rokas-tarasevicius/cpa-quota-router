@@ -14,7 +14,7 @@ endpoint. Nothing else in the setup changes, and Claude Code doesn't know it exi
 | Piece | What it is | What it does here |
 | --- | --- | --- |
 | Claude Code | the CLI on laptops and agent machines | Points `ANTHROPIC_BASE_URL` at the proxy and sends `X-Claude-Code-Session-Id` with every request |
-| Tailscale | the private network | Makes the proxy's port reachable from the tailnet and nowhere else |
+| Network | however clients reach the proxy | Localhost, a LAN or a private network such as Tailscale. The router doesn't care which |
 | CLIProxyAPI | the proxy, a Go binary run as a systemd user service | Holds the Claude logins, binds each session to one account and forwards requests to Anthropic |
 | Account files | one JSON file per login, in the proxy's `auth-dir` | Hold each account's tokens and, now, its `priority` |
 | Quota router | `quota_router.py`, run as a systemd user service | Every 5 minutes, reads usage and sets `priority` on each Claude account |
@@ -62,14 +62,14 @@ account files and aren't disabled. It never:
   else.
 - **The router opens no ports.** The systemd unit runs it with `NoNewPrivileges` and a `0077` umask.
 
-## Our setup
+## An example setup
 
-This is how it runs on `agentbox`, the machine behind our pool:
+This is a real pool the router has run on since 30 October 2026, on one Linux machine:
 
 | | |
 | --- | --- |
-| Proxy | CLIProxyAPI v8.0.44, `cliproxyapi.service` (systemd user), config at `~/cliproxyapi/config.yaml`, listening on `127.0.0.1:8317` and published to the tailnet with Tailscale Serve |
+| Proxy | CLIProxyAPI v8.0.44, `cliproxyapi.service` (systemd user), config at `~/cliproxyapi/config.yaml`, listening on `127.0.0.1:8317` and published to a private network with Tailscale Serve |
 | Routing | `strategy: round-robin`, `session-affinity: true`, `session-affinity-ttl: 1h`, `session-affinity-rebind-on: quota` |
-| Accounts | three Claude subscription logins in `~/.cli-proxy-api`, plus two Codex logins (not ranked) |
-| Router | `~/cliproxyapi/quota-router/quota_router.py`, `cpa-quota-router.service` (systemd user), started on 30 October 2026 |
+| Accounts | three Claude subscription logins in `~/.cli-proxy-api`, none with a 5-hour limit since November 2026, plus two Codex logins (not ranked) |
+| Router | `~/cliproxyapi/quota-router/quota_router.py`, `cpa-quota-router.service` (systemd user) |
 | Key | `~/cliproxyapi/quota-router.key`, mode 600 |

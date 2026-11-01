@@ -2,11 +2,17 @@
 
 ## Install
 
-On the machine that runs CLIProxyAPI, logged in as the user the proxy runs as. The repository is
-private, so you need to be a collaborator, with an SSH key or `gh` signed in:
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="diagrams/setup.dark.svg">
+  <img alt="Setting it up" src="diagrams/setup.svg" width="880">
+</picture>
+
+First, in the proxy's config, make sure `routing.session-affinity` is `true` and
+`management.secret-key` holds a plaintext key (below). Then, on the machine that runs CLIProxyAPI,
+logged in as the user the proxy runs as:
 
 ```sh
-git clone git@github.com:rokas-tarasevicius/cpa-quota-router.git ~/cliproxyapi/quota-router
+git clone https://github.com/rokas-tarasevicius/cpa-quota-router.git ~/cliproxyapi/quota-router
 # Paste the plaintext management key, press Enter, then Ctrl-D. It stays out of your shell history.
 (umask 077 && cat > ~/cliproxyapi/quota-router.key)
 ```

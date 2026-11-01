@@ -1,0 +1,16 @@
+name: Feature request
+description: Something the router should do that it doesn't.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you're trying to do, and where the router gets in the way or falls short.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you'd like
+      description: How you'd like it to work. Check it against the ground rules in CONTRIBUTING.md (one file, standard library, out of the request path).

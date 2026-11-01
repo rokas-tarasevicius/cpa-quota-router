@@ -16,7 +16,7 @@
     { "id": "host", "label": "Proxy host", "note": "systemd user services", "contains": ["proxy", "files", "router"] }
   ],
   "edges": [
-    { "from": "claude", "to": "proxy", "label": "over Tailscale" },
+    { "from": "claude", "to": "proxy", "label": "base URL" },
     { "from": "proxy", "to": "messages", "label": "one account per session" },
     { "from": "proxy", "to": "files", "label": "saves priority" },
     { "from": "router", "to": "files", "label": "reads tokens" },

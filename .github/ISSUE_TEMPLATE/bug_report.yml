@@ -1,0 +1,43 @@
+name: Bug report
+description: The router ranked accounts wrongly, failed, or the docs didn't match what happened.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never paste access tokens, refresh tokens, the management key or unmasked email addresses.
+        For a security problem, use [private vulnerability reporting](https://github.com/rokas-tarasevicius/cpa-quota-router/security/advisories/new) instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: dry-run
+    attributes:
+      label: Dry-run output
+      description: Output of `quota_router.py --once --dry-run --verbose`. Addresses are masked, but check before pasting.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: cliproxyapi
+    attributes:
+      label: CLIProxyAPI version
+      placeholder: "8.0.48"
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.12.3"
+    validations:
+      required: true
+  - type: textarea
+    id: setup
+    attributes:
+      label: How it runs
+      description: systemd user service, dedicated user, Docker, something else? Anything unusual in the proxy's `routing` config?

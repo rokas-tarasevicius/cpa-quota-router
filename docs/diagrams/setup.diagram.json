@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "kind": "steps",
+  "title": "Setting it up",
+  "caption": "Two settings in the proxy, the router's one file, a dry run that changes nothing, then a systemd user service.",
+  "steps": [
+    { "id": "affinity", "label": "Turn on affinity", "note": "session-affinity: true", "mono": true, "icon": "code/config" },
+    { "id": "key", "label": "Set a plain key", "note": "management.secret-key", "mono": true, "icon": "infra/key" },
+    { "id": "clone", "label": "Clone the router", "note": "one file, no deps", "icon": "code/repository" },
+    { "id": "dry", "label": "Look first", "note": "--once --dry-run", "mono": true, "icon": "infra/terminal", "focus": true },
+    { "id": "service", "label": "Start the service", "note": "systemd user unit", "icon": "infra/process" }
+  ]
+}

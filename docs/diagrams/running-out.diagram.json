@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "kind": "sequence",
+  "title": "When the top account runs out",
+  "caption": "The proxy moves a session only when its account is really out. The router catches up at its next run, so new sessions stop starting there.",
+  "participants": [
+    { "id": "claude", "label": "Claude Code", "icon": "vendors/claude" },
+    { "id": "proxy", "label": "CLIProxyAPI", "icon": "infra/load-balancer" },
+    { "id": "a", "label": "Account A", "icon": "people/person" },
+    { "id": "b", "label": "Account B", "icon": "people/person" },
+    { "id": "router", "label": "Quota router", "icon": "infra/cron" }
+  ],
+  "steps": [
+    { "from": "claude", "to": "proxy", "label": "Next turn of a session" },
+    { "from": "proxy", "to": "a", "label": "Sends on A, as bound" },
+    { "from": "a", "to": "proxy", "label": "429: out of quota", "style": "dashed" },
+    { "note": "Cools A down and rebinds the session to the next priority.", "at": "proxy" },
+    { "from": "proxy", "to": "b", "label": "Retries on B" },
+    { "from": "b", "to": "proxy", "label": "Answer", "style": "dashed" },
+    { "from": "proxy", "to": "claude", "label": "Answer from B", "style": "dashed" },
+    { "gap": "within five minutes" },
+    { "from": "router", "to": "proxy", "label": "A to -10, B on top" },
+    { "note": "New sessions start on B; A waits for its reset.", "at": "proxy" }
+  ]
+}

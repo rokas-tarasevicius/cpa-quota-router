@@ -181,6 +181,14 @@ picture changes, so does the ranking.
 
 ## 7. When something goes wrong
 
+The case that matters most is the top account running out in the middle of a session, which it
+will, since it takes every new session until then:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="diagrams/running-out.dark.svg">
+  <img alt="When the top account runs out" src="diagrams/running-out.svg" width="880">
+</picture>
+
 | What happens | What the router and proxy do |
 | --- | --- |
 | The router stops or crashes | The last priorities stay in place and the proxy carries on. systemd restarts the router after 30 seconds. |
