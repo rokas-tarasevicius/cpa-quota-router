@@ -36,7 +36,7 @@ import threading
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Callable, Optional
 
 __version__ = "0.3.0"
@@ -255,10 +255,14 @@ def _iso(moment: datetime) -> str:
 
 
 def _live_reset(window: Optional[Window], now: datetime) -> Optional[str]:
-    """A window's reset, when it is still ahead; None for an unstarted or already-reset window."""
+    """A window's reset, when it is still ahead; None for an unstarted or already-reset window.
+    Rounded to the minute: the usage endpoint stamps each reset with the sub-second
+    of the call, so one window's reset differs from read to read, and a reader
+    comparing two readings would take them for two windows."""
     if window is None or window.resets_at is None or window.resets_at <= now:
         return None
-    return _iso(window.resets_at)
+    rounded = (window.resets_at + timedelta(seconds=30)).replace(second=0, microsecond=0)
+    return _iso(rounded)
 
 
 def reading_lines(accounts: list[Account], now: datetime) -> list[dict]:

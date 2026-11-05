@@ -248,6 +248,12 @@ class ReadingsTest(unittest.TestCase):
              "weekly_resets_at": "2026-11-03T15:00:00.000Z", "five_hour_used": None, "five_hour_resets_at": None},
         ])
 
+    def test_one_window_reads_the_same_reset_on_every_read(self):
+        """The endpoint returns e.g. 22:59:59.861825 on one call and 22:59:59.898437 on the next."""
+        resets = [NOW + timedelta(hours=30, seconds=-1, microseconds=micro) for micro in (861825, 898437)]
+        lines = [qr.reading_lines([account("a.json", qr.Usage(None, qr.Window(10, at)))], NOW)[0] for at in resets]
+        self.assertEqual({line["weekly_resets_at"] for line in lines}, {"2026-10-31T17:00:00.000Z"})
+
     def test_a_window_whose_reset_has_passed_reads_as_empty(self):
         line = qr.reading_lines([account("a.json", usage(80, -1))], NOW)[0]
         self.assertEqual((line["weekly_used"], line["weekly_resets_at"]), (0.0, None))
