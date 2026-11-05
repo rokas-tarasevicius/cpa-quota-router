@@ -191,7 +191,7 @@ class FakeManagement:
 
 class RunOnceTest(unittest.TestCase):
     def args(self, dry_run=False):
-        return argparse.Namespace(five_hour_ceiling=90.0, weekly_ceiling=99.0, dry_run=dry_run)
+        return argparse.Namespace(five_hour_ceiling=90.0, weekly_ceiling=99.0, dry_run=dry_run, readings_dir=None)
 
     def test_only_changed_priorities_are_written(self):
         usages = {"a.json": usage(96, 12), "b.json": usage(19, 112)}
@@ -253,8 +253,36 @@ class ReadingsTest(unittest.TestCase):
         self.assertEqual((line["weekly_used"], line["weekly_resets_at"]), (0.0, None))
 
     def test_off_unless_asked(self):
-        args = argparse.Namespace(five_hour_ceiling=90.0, weekly_ceiling=99.0, dry_run=True)
-        qr.run_once(FakeManagement([{"name": "a.json"}]), lambda path: usage(10, 10), args, NOW)
+        directory = tempfile.mkdtemp()
+        previous = os.getcwd()
+        os.chdir(directory)
+        try:
+            args = qr.parse_args([])
+            self.assertIsNone(args.readings_dir)
+            args.dry_run = True
+            qr.run_once(FakeManagement([{"name": "a.json"}]), lambda path: usage(10, 10), args, NOW)
+        finally:
+            os.chdir(previous)
+        self.assertEqual(os.listdir(directory), [])
+
+    def test_the_environment_sets_the_directory(self):
+        os.environ["CPA_READINGS_DIR"] = "/var/lib/readings"
+        try:
+            self.assertEqual(qr.parse_args([]).readings_dir, "/var/lib/readings")
+        finally:
+            del os.environ["CPA_READINGS_DIR"]
+
+    def test_an_unwritable_directory_does_not_stop_the_routing(self):
+        blocker = tempfile.NamedTemporaryFile(delete=False)
+        blocker.close()
+        args = argparse.Namespace(five_hour_ceiling=90.0, weekly_ceiling=99.0, dry_run=False,
+                                  readings_dir=blocker.name)
+        management = FakeManagement([{"name": "a.json"}])
+        with self.assertLogs("cpa-quota-router", "ERROR"):
+            placements = qr.run_once(management, lambda path: usage(10, 10), args, NOW)
+        self.assertEqual(len(placements), 1)
+        self.assertEqual(management.patches, [("a.json", 10)])
+        os.unlink(blocker.name)
 
 
 if __name__ == "__main__":

@@ -250,10 +250,15 @@ def collect(management: Management, usage_reader: Callable[[str], Usage]) -> lis
     return accounts
 
 
-def _iso(moment: Optional[datetime]) -> Optional[str]:
-    if moment is None:
-        return None
+def _iso(moment: datetime) -> str:
     return moment.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _live_reset(window: Optional[Window], now: datetime) -> Optional[str]:
+    """A window's reset, when it is still ahead; None for an unstarted or already-reset window."""
+    if window is None or window.resets_at is None or window.resets_at <= now:
+        return None
+    return _iso(window.resets_at)
 
 
 def reading_lines(accounts: list[Account], now: datetime) -> list[dict]:
@@ -269,10 +274,9 @@ def reading_lines(accounts: list[Account], now: datetime) -> list[dict]:
             "type": "seat_reading",
             "seat": account.name,
             "weekly_used": used(weekly, now),
-            "weekly_resets_at": _iso(weekly.resets_at) if weekly.resets_at and weekly.resets_at > now else None,
+            "weekly_resets_at": _live_reset(weekly, now),
             "five_hour_used": None if five_hour is None else used(five_hour, now),
-            "five_hour_resets_at": None if five_hour is None or not five_hour.resets_at
-            or five_hour.resets_at <= now else _iso(five_hour.resets_at),
+            "five_hour_resets_at": _live_reset(five_hour, now),
         })
     return lines
 
@@ -300,7 +304,7 @@ def run_once(
 ) -> list[Placement]:
     now = now or datetime.now(timezone.utc)
     accounts = collect(management, usage_reader)
-    if getattr(args, "readings_dir", None):
+    if args.readings_dir:
         write_readings(os.path.expanduser(args.readings_dir), reading_lines(accounts, now), now)
     placements = plan(accounts, now, args.five_hour_ceiling, args.weekly_ceiling)
     for placement in placements:
