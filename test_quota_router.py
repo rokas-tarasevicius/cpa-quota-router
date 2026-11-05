@@ -1,4 +1,7 @@
 import argparse
+import json
+import os
+import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 
@@ -219,6 +222,39 @@ class RunOnceTest(unittest.TestCase):
         management = FakeManagement([{"name": "a.json", "path": "/auths/a.json"}])
         qr.run_once(management, lambda path: seen.append(path) or usage(10, 10), self.args(), NOW)
         self.assertEqual(seen, ["/auths/a.json"])
+
+
+class ReadingsTest(unittest.TestCase):
+    def test_writes_one_line_per_account_it_could_read(self):
+        directory = tempfile.mkdtemp()
+        args = argparse.Namespace(five_hour_ceiling=90.0, weekly_ceiling=99.0, dry_run=True, readings_dir=directory)
+        usages = {"a.json": usage(42, 30, five_hour=12.5, five_hour_reset_hours=2), "c.json": usage(7, 100, None)}
+
+        def reader(path):
+            if path == "b.json":
+                raise qr.HttpError(401, "token expired")
+            return usages[path]
+
+        management = FakeManagement([{"name": "a.json"}, {"name": "b.json"}, {"name": "c.json"}])
+        with self.assertLogs("cpa-quota-router", "WARNING"):
+            qr.run_once(management, reader, args, NOW)
+        with open(os.path.join(directory, "2026-10-30.jsonl")) as handle:
+            lines = [json.loads(line) for line in handle]
+        self.assertEqual(lines, [
+            {"ts": "2026-10-30T11:00:00.000Z", "type": "seat_reading", "seat": "a.json", "weekly_used": 42,
+             "weekly_resets_at": "2026-10-31T17:00:00.000Z", "five_hour_used": 12.5,
+             "five_hour_resets_at": "2026-10-30T13:00:00.000Z"},
+            {"ts": "2026-10-30T11:00:00.000Z", "type": "seat_reading", "seat": "c.json", "weekly_used": 7,
+             "weekly_resets_at": "2026-11-03T15:00:00.000Z", "five_hour_used": None, "five_hour_resets_at": None},
+        ])
+
+    def test_a_window_whose_reset_has_passed_reads_as_empty(self):
+        line = qr.reading_lines([account("a.json", usage(80, -1))], NOW)[0]
+        self.assertEqual((line["weekly_used"], line["weekly_resets_at"]), (0.0, None))
+
+    def test_off_unless_asked(self):
+        args = argparse.Namespace(five_hour_ceiling=90.0, weekly_ceiling=99.0, dry_run=True)
+        qr.run_once(FakeManagement([{"name": "a.json"}]), lambda path: usage(10, 10), args, NOW)
 
 
 if __name__ == "__main__":

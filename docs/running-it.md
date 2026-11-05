@@ -78,6 +78,7 @@ shows as `keep`.
 | `--interval` | | `300` | Seconds between runs |
 | `--five-hour-ceiling` | | `90` | 5-hour use (%) at which an account drops below the ready ones. Accounts without a 5-hour limit ignore it |
 | `--weekly-ceiling` | | `99` | Weekly use (%) at which an account counts as used up |
+| `--readings-dir` | `CPA_READINGS_DIR` | | Also append every usage reading to `<dir>/YYYY-MM-DD.jsonl`, one JSON line per account (weekly and 5-hour use and resets). Off when unset |
 | `--once` | | | Run once and exit |
 | `--dry-run` | | | Log the ranking, change nothing |
 | `--reset` | | | Clear every Claude priority (back to plain round robin) and exit |
