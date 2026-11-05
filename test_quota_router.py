@@ -1,4 +1,7 @@
 import argparse
+import json
+import os
+import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 
@@ -188,7 +191,7 @@ class FakeManagement:
 
 class RunOnceTest(unittest.TestCase):
     def args(self, dry_run=False):
-        return argparse.Namespace(five_hour_ceiling=90.0, weekly_ceiling=99.0, dry_run=dry_run)
+        return argparse.Namespace(five_hour_ceiling=90.0, weekly_ceiling=99.0, dry_run=dry_run, readings_dir=None)
 
     def test_only_changed_priorities_are_written(self):
         usages = {"a.json": usage(96, 12), "b.json": usage(19, 112)}
@@ -219,6 +222,73 @@ class RunOnceTest(unittest.TestCase):
         management = FakeManagement([{"name": "a.json", "path": "/auths/a.json"}])
         qr.run_once(management, lambda path: seen.append(path) or usage(10, 10), self.args(), NOW)
         self.assertEqual(seen, ["/auths/a.json"])
+
+
+class ReadingsTest(unittest.TestCase):
+    def test_writes_one_line_per_account_it_could_read(self):
+        directory = tempfile.mkdtemp()
+        args = argparse.Namespace(five_hour_ceiling=90.0, weekly_ceiling=99.0, dry_run=True, readings_dir=directory)
+        usages = {"a.json": usage(42, 30, five_hour=12.5, five_hour_reset_hours=2), "c.json": usage(7, 100, None)}
+
+        def reader(path):
+            if path == "b.json":
+                raise qr.HttpError(401, "token expired")
+            return usages[path]
+
+        management = FakeManagement([{"name": "a.json"}, {"name": "b.json"}, {"name": "c.json"}])
+        with self.assertLogs("cpa-quota-router", "WARNING"):
+            qr.run_once(management, reader, args, NOW)
+        with open(os.path.join(directory, "2026-10-30.jsonl")) as handle:
+            lines = [json.loads(line) for line in handle]
+        self.assertEqual(lines, [
+            {"ts": "2026-10-30T11:00:00.000Z", "type": "seat_reading", "seat": "a.json", "weekly_used": 42,
+             "weekly_resets_at": "2026-10-31T17:00:00.000Z", "five_hour_used": 12.5,
+             "five_hour_resets_at": "2026-10-30T13:00:00.000Z"},
+            {"ts": "2026-10-30T11:00:00.000Z", "type": "seat_reading", "seat": "c.json", "weekly_used": 7,
+             "weekly_resets_at": "2026-11-03T15:00:00.000Z", "five_hour_used": None, "five_hour_resets_at": None},
+        ])
+
+    def test_one_window_reads_the_same_reset_on_every_read(self):
+        """The endpoint returns e.g. 22:59:59.861825 on one call and 22:59:59.898437 on the next."""
+        resets = [NOW + timedelta(hours=30, seconds=-1, microseconds=micro) for micro in (861825, 898437)]
+        lines = [qr.reading_lines([account("a.json", qr.Usage(None, qr.Window(10, at)))], NOW)[0] for at in resets]
+        self.assertEqual({line["weekly_resets_at"] for line in lines}, {"2026-10-31T17:00:00.000Z"})
+
+    def test_a_window_whose_reset_has_passed_reads_as_empty(self):
+        line = qr.reading_lines([account("a.json", usage(80, -1))], NOW)[0]
+        self.assertEqual((line["weekly_used"], line["weekly_resets_at"]), (0.0, None))
+
+    def test_off_unless_asked(self):
+        directory = tempfile.mkdtemp()
+        previous = os.getcwd()
+        os.chdir(directory)
+        try:
+            args = qr.parse_args([])
+            self.assertIsNone(args.readings_dir)
+            args.dry_run = True
+            qr.run_once(FakeManagement([{"name": "a.json"}]), lambda path: usage(10, 10), args, NOW)
+        finally:
+            os.chdir(previous)
+        self.assertEqual(os.listdir(directory), [])
+
+    def test_the_environment_sets_the_directory(self):
+        os.environ["CPA_READINGS_DIR"] = "/var/lib/readings"
+        try:
+            self.assertEqual(qr.parse_args([]).readings_dir, "/var/lib/readings")
+        finally:
+            del os.environ["CPA_READINGS_DIR"]
+
+    def test_an_unwritable_directory_does_not_stop_the_routing(self):
+        blocker = tempfile.NamedTemporaryFile(delete=False)
+        blocker.close()
+        args = argparse.Namespace(five_hour_ceiling=90.0, weekly_ceiling=99.0, dry_run=False,
+                                  readings_dir=blocker.name)
+        management = FakeManagement([{"name": "a.json"}])
+        with self.assertLogs("cpa-quota-router", "ERROR"):
+            placements = qr.run_once(management, lambda path: usage(10, 10), args, NOW)
+        self.assertEqual(len(placements), 1)
+        self.assertEqual(management.patches, [("a.json", 10)])
+        os.unlink(blocker.name)
 
 
 if __name__ == "__main__":

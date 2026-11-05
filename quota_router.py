@@ -36,10 +36,10 @@ import threading
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Callable, Optional
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 DEFAULT_MANAGEMENT_URL = "http://127.0.0.1:8317/v0/management"
 DEFAULT_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
@@ -250,6 +250,56 @@ def collect(management: Management, usage_reader: Callable[[str], Usage]) -> lis
     return accounts
 
 
+def _iso(moment: datetime) -> str:
+    return moment.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _live_reset(window: Optional[Window], now: datetime) -> Optional[str]:
+    """A window's reset, when it is still ahead; None for an unstarted or already-reset window.
+    Rounded to the minute: the usage endpoint stamps each reset with the sub-second
+    of the call, so one window's reset differs from read to read, and a reader
+    comparing two readings would take them for two windows."""
+    if window is None or window.resets_at is None or window.resets_at <= now:
+        return None
+    rounded = (window.resets_at + timedelta(seconds=30)).replace(second=0, microsecond=0)
+    return _iso(rounded)
+
+
+def reading_lines(accounts: list[Account], now: datetime) -> list[dict]:
+    """One line per account whose usage was read: what the seat itself reports.
+    `seat` is the auth file name, the name the proxy's management API uses."""
+    lines = []
+    for account in accounts:
+        if account.usage is None:
+            continue
+        weekly, five_hour = account.usage.weekly, account.usage.five_hour
+        lines.append({
+            "ts": _iso(now),
+            "type": "seat_reading",
+            "seat": account.name,
+            "weekly_used": used(weekly, now),
+            "weekly_resets_at": _live_reset(weekly, now),
+            "five_hour_used": None if five_hour is None else used(five_hour, now),
+            "five_hour_resets_at": _live_reset(five_hour, now),
+        })
+    return lines
+
+
+def write_readings(directory: str, lines: list[dict], now: datetime) -> None:
+    """Append to <directory>/YYYY-MM-DD.jsonl (UTC). A failure is logged, not
+    raised: routing matters more than the record of it."""
+    if not lines:
+        return
+    try:
+        os.makedirs(directory, mode=0o750, exist_ok=True)
+        path = os.path.join(directory, f"{now.astimezone(timezone.utc):%Y-%m-%d}.jsonl")
+        with open(path, "a", encoding="utf-8") as handle:
+            for line in lines:
+                handle.write(json.dumps(line, separators=(",", ":")) + "\n")
+    except OSError as error:
+        log.error("could not write readings to %s: %s", directory, error)
+
+
 def run_once(
     management: Management,
     usage_reader: Callable[[str], Usage],
@@ -257,7 +307,10 @@ def run_once(
     now: Optional[datetime] = None,
 ) -> list[Placement]:
     now = now or datetime.now(timezone.utc)
-    placements = plan(collect(management, usage_reader), now, args.five_hour_ceiling, args.weekly_ceiling)
+    accounts = collect(management, usage_reader)
+    if args.readings_dir:
+        write_readings(os.path.expanduser(args.readings_dir), reading_lines(accounts, now), now)
+    placements = plan(accounts, now, args.five_hour_ceiling, args.weekly_ceiling)
     for placement in placements:
         changed = placement.priority != placement.account.priority
         if changed and not args.dry_run:
@@ -297,6 +350,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                              "accounts without a 5-hour limit ignore it")
     parser.add_argument("--weekly-ceiling", type=float, default=99.0,
                         help="weekly utilization (%%) at which an account counts as used up")
+    parser.add_argument("--readings-dir", default=os.environ.get("CPA_READINGS_DIR"),
+                        help="also append every usage reading to <dir>/YYYY-MM-DD.jsonl, one JSON line per account")
     parser.add_argument("--once", action="store_true", help="re-rank once and exit")
     parser.add_argument("--dry-run", action="store_true", help="log the ranking without changing priorities")
     parser.add_argument("--reset", action="store_true", help="clear every Claude priority and exit")

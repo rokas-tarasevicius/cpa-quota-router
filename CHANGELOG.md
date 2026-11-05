@@ -5,6 +5,11 @@ sent in the router's `User-Agent`.
 
 ## Unreleased
 
+- `--readings-dir` (or `CPA_READINGS_DIR`) appends every usage reading to `<dir>/YYYY-MM-DD.jsonl`,
+  one JSON line per account: weekly and 5-hour utilization and their resets, under the auth file
+  name. Off by default. It gives a usage report the seat's own figure, which the router already
+  reads every pass and until now only logged. Version 0.3.0.
+
 - Published under the MIT license, with contributing and security guides and issue templates.
 - CI runs on GitHub-hosted runners, on every push and pull request.
 - New diagrams: setting it up, and what happens when the top account runs out.
