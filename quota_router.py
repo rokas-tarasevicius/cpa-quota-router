@@ -9,7 +9,8 @@ weekly window resets is lost.
 
 Ranking, highest priority first:
   1. ready accounts, soonest weekly reset first;
-  2. accounts whose 5-hour window is used up, soonest 5-hour reset first;
+  2. accounts at their 5-hour ceiling (by default, window used up), soonest
+     5-hour reset first;
   3. accounts whose weekly quota is used up (negative priority).
 
 The weekly reset decides the order. An account part-way through its 5-hour
