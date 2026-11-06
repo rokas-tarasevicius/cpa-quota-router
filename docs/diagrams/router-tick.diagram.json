@@ -15,7 +15,7 @@
     { "from": "router", "to": "files", "label": "Reads each token" },
     { "from": "router", "to": "anthropic", "label": "Usage, per account" },
     { "from": "anthropic", "to": "router", "label": "Use and reset times", "style": "dashed" },
-    { "note": "Ranks them: soonest weekly reset first, nearly full ones lower.", "at": "router" },
+    { "note": "Ranks them: soonest weekly reset first, used-up ones lower.", "at": "router" },
     { "from": "router", "to": "proxy", "label": "Sets changed priorities" },
     { "from": "proxy", "to": "files", "label": "Saves priority" },
     { "note": "New sessions now bind to the top account.", "at": "proxy" },

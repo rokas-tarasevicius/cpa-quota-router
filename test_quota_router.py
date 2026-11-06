@@ -45,12 +45,12 @@ class PlanTest(unittest.TestCase):
         placements = qr.plan([account("fresh", usage(0, None)), account("old", usage(50, 100))], NOW)
         self.assertEqual([p.account.name for p in placements], ["old", "fresh"])
 
-    def test_near_five_hour_limit_drops_below_ready_accounts(self):
+    def test_used_up_five_hour_window_drops_below_ready_accounts(self):
         placements = qr.plan(
             [
-                account("soon-but-hot", usage(40, 10, five_hour=92, five_hour_reset_hours=2)),
+                account("soon-but-out", usage(40, 10, five_hour=100, five_hour_reset_hours=2)),
                 account("later", usage(40, 50, five_hour=10, five_hour_reset_hours=4)),
-                account("hotter-resets-sooner", usage(40, 60, five_hour=95, five_hour_reset_hours=1)),
+                account("out-resets-sooner", usage(40, 60, five_hour=100, five_hour_reset_hours=1)),
             ],
             NOW,
         )
@@ -58,10 +58,38 @@ class PlanTest(unittest.TestCase):
             ranking(placements),
             [
                 ("later", qr.READY, 30),
-                ("hotter-resets-sooner", qr.FIVE_HOUR_FULL, 20),
-                ("soon-but-hot", qr.FIVE_HOUR_FULL, 10),
+                ("out-resets-sooner", qr.FIVE_HOUR_FULL, 20),
+                ("soon-but-out", qr.FIVE_HOUR_FULL, 10),
             ],
         )
+
+    def test_nearly_full_five_hour_window_keeps_the_soonest_weekly_reset_on_top(self):
+        # A 5-hour window comes back within hours; quota left at the weekly reset is lost.
+        # The weekly reset decides until the 5-hour window is actually used up.
+        placements = qr.plan(
+            [
+                account("resets-in-5-days", usage(21, 120, five_hour=0, five_hour_reset_hours=None)),
+                account("resets-tomorrow", usage(43, 13, five_hour=95, five_hour_reset_hours=4)),
+                account("resets-in-2-days", usage(29, 43, five_hour=99, five_hour_reset_hours=1)),
+            ],
+            NOW,
+        )
+        self.assertEqual(
+            ranking(placements),
+            [
+                ("resets-tomorrow", qr.READY, 30),
+                ("resets-in-2-days", qr.READY, 20),
+                ("resets-in-5-days", qr.READY, 10),
+            ],
+        )
+
+    def test_a_lower_five_hour_ceiling_moves_new_sessions_off_earlier(self):
+        placements = qr.plan(
+            [account("resets-tomorrow", usage(43, 13, five_hour=92, five_hour_reset_hours=4)), account("b", usage(21, 120))],
+            NOW,
+            five_hour_ceiling=90,
+        )
+        self.assertEqual(ranking(placements), [("b", qr.READY, 20), ("resets-tomorrow", qr.FIVE_HOUR_FULL, 10)])
 
     def test_accounts_without_a_five_hour_limit_rank_on_the_weekly_reset(self):
         # The live pool on 2026-11-01, after Anthropic dropped the 5-hour window on these accounts.
@@ -83,7 +111,7 @@ class PlanTest(unittest.TestCase):
             [
                 account("uncapped-later", usage(40, 30, five_hour=None)),
                 account("capped-sooner", usage(40, 10, five_hour=50, five_hour_reset_hours=3)),
-                account("capped-hot", usage(40, 5, five_hour=95, five_hour_reset_hours=1)),
+                account("capped-out", usage(40, 5, five_hour=100, five_hour_reset_hours=1)),
                 account("uncapped-soonest", usage(98, 2, five_hour=None)),
             ],
             NOW,
@@ -94,7 +122,7 @@ class PlanTest(unittest.TestCase):
                 ("uncapped-soonest", qr.READY, 40),
                 ("capped-sooner", qr.READY, 30),
                 ("uncapped-later", qr.READY, 20),
-                ("capped-hot", qr.FIVE_HOUR_FULL, 10),
+                ("capped-out", qr.FIVE_HOUR_FULL, 10),
             ],
         )
 
@@ -113,6 +141,11 @@ class PlanTest(unittest.TestCase):
     def test_ceilings_are_configurable(self):
         placements = qr.plan([account("a", usage(95, 10)), account("b", usage(10, 20))], NOW, weekly_ceiling=95)
         self.assertEqual(ranking(placements), [("b", qr.READY, 10), ("a", qr.WEEKLY_FULL, -10)])
+
+
+class ArgsTest(unittest.TestCase):
+    def test_default_five_hour_ceiling_waits_for_the_window_to_be_used_up(self):
+        self.assertEqual(qr.parse_args([]).five_hour_ceiling, 100.0)
 
 
 class ParseTest(unittest.TestCase):
@@ -188,7 +221,7 @@ class FakeManagement:
 
 class RunOnceTest(unittest.TestCase):
     def args(self, dry_run=False):
-        return argparse.Namespace(five_hour_ceiling=90.0, weekly_ceiling=99.0, dry_run=dry_run)
+        return argparse.Namespace(five_hour_ceiling=100.0, weekly_ceiling=99.0, dry_run=dry_run)
 
     def test_only_changed_priorities_are_written(self):
         usages = {"a.json": usage(96, 12), "b.json": usage(19, 112)}

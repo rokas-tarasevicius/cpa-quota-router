@@ -3,8 +3,13 @@
 Notable changes to the router. The version is `__version__` in `quota_router.py`, which is also
 sent in the router's `User-Agent`.
 
-## Unreleased
+## 0.3.0 (2026-11-06)
 
+- The weekly reset now decides the order until an account's 5-hour window is used up.
+  `--five-hour-ceiling` defaults to 100 instead of 90. Before, an account dropped below every
+  ready account at 90% of its 5-hour window, even if its week reset hours before theirs, so the
+  last tenth of the soonest-expiring account's window went to new sessions elsewhere. Pass
+  `--five-hour-ceiling 90` for the old behaviour.
 - Published under the MIT license, with contributing and security guides and issue templates.
 - CI runs on GitHub-hosted runners, on every push and pull request.
 - New diagrams: setting it up, and what happens when the top account runs out.

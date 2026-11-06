@@ -9,8 +9,12 @@ weekly window resets is lost.
 
 Ranking, highest priority first:
   1. ready accounts, soonest weekly reset first;
-  2. accounts near their 5-hour limit, soonest 5-hour reset first;
+  2. accounts whose 5-hour window is used up, soonest 5-hour reset first;
   3. accounts whose weekly quota is used up (negative priority).
+
+The weekly reset decides the order. An account part-way through its 5-hour
+window keeps its place until the window is used up: quota left at the weekly
+reset is lost, while a 5-hour window comes back within hours.
 
 Not every plan has a 5-hour limit. An account whose usage reports
 "five_hour": null (or leaves it out) is ranked on its weekly window alone and
@@ -39,7 +43,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Optional
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 DEFAULT_MANAGEMENT_URL = "http://127.0.0.1:8317/v0/management"
 DEFAULT_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
@@ -141,7 +145,7 @@ def tier(usage: Usage, now: datetime, five_hour_ceiling: float, weekly_ceiling: 
 def plan(
     accounts: list[Account],
     now: datetime,
-    five_hour_ceiling: float = 90.0,
+    five_hour_ceiling: float = 100.0,
     weekly_ceiling: float = 99.0,
 ) -> list[Placement]:
     """Rank accounts with known usage. Accounts without usage are left out, so
@@ -292,9 +296,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                         help="where auth files live, for entries the API lists without a path")
     parser.add_argument("--usage-url", default=os.environ.get("CPA_USAGE_URL", DEFAULT_USAGE_URL))
     parser.add_argument("--interval", type=float, default=300.0, help="seconds between re-rankings")
-    parser.add_argument("--five-hour-ceiling", type=float, default=90.0,
+    parser.add_argument("--five-hour-ceiling", type=float, default=100.0,
                         help="5-hour utilization (%%) at which an account drops below ready ones; "
-                             "accounts without a 5-hour limit ignore it")
+                             "the default waits until the window is used up, and accounts "
+                             "without a 5-hour limit ignore it")
     parser.add_argument("--weekly-ceiling", type=float, default=99.0,
                         help="weekly utilization (%%) at which an account counts as used up")
     parser.add_argument("--once", action="store_true", help="re-rank once and exit")
