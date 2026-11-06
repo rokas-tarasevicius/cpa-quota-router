@@ -127,8 +127,8 @@ Each account goes into one of three tiers:
 
 | Tier | When | Order inside the tier | Priority |
 | --- | --- | --- | --- |
-| **ready** | under 99% of the week and, if it has one, under 90% of the 5 hours | soonest weekly reset first; unstarted windows last | highest numbers |
-| **5h-full** | 90% or more of the 5-hour window used; only accounts that have one | soonest 5-hour reset first | below every ready account |
+| **ready** | under 99% of the week and, if it has one, some of the 5-hour window left | soonest weekly reset first; unstarted windows last | highest numbers |
+| **5h-full** | the 5-hour window used up; only accounts that have one | soonest 5-hour reset first | below every ready account |
 | **weekly-full** | 99% or more of the week used | doesn't matter | -10 |
 
 Then the usable accounts (ready, then 5h-full) are numbered from the top in steps of 10. With four
@@ -145,10 +145,13 @@ A few details:
   runs out, so the soonest-resetting one takes every new session until it is used up.
 - **Passed resets.** A window whose reset time has already passed counts as empty, even if
   Anthropic hasn't caught up yet.
-- **Why the 5-hour ceiling exists.** An account close to its 5-hour limit is about to start
-  returning 429s, so new sessions go elsewhere for a while. Its running sessions carry on until it
-  actually returns a 429, and then the proxy moves them. Once its 5-hour window resets, it goes
-  back to the top at the next run.
+- **Why the weekly reset beats the 5-hour window.** Quota left when the week resets is lost, but
+  a 5-hour window comes back within hours. So an account part-way through its 5-hour window keeps
+  its place, and the one whose week resets soonest gets the whole window. Only once the window is
+  used up do new sessions go elsewhere. Its running sessions carry on until it returns a 429, and
+  then the proxy moves them. Once its 5-hour window resets, it goes back to the top at the next
+  run. `--five-hour-ceiling` moves new sessions off earlier, if you would rather trade the end of
+  the window for fewer sessions moving mid-way; see [Tuning](running-it.md#tuning).
 - **Used-up accounts stay enabled.** A used-up account isn't disabled, just put last. If every
   other account is unavailable, the proxy can still try it, exactly as it would have without the
   router.
@@ -167,11 +170,11 @@ or runs out.
   <img alt="Where new sessions go this week" src="diagrams/week-ahead.svg" width="880">
 </picture>
 
-- **Friday:** A spends its last 4% before midnight, when it resets. If it runs out or nears its
-  5-hour limit first, the router moves it down and B takes over early.
+- **Friday:** A spends its last 4% before midnight, when it resets. If it runs out or uses up its
+  5-hour window first, the router moves it down and B takes over early.
 - **Saturday to Wednesday:** A's new week hasn't started, so it has no reset time and drops behind
   B. B, whose clock is running, takes new sessions until it resets on Wednesday. A only gets new
-  sessions while B is cooling down or near its 5-hour limit.
+  sessions while B is cooling down or out of 5-hour quota.
 - **Monday:** C resets. Like A, it is fresh with no clock running, so it waits behind B as a spare.
 - **Wednesday:** B resets. The router then ranks whichever accounts have a clock running at that
   point.

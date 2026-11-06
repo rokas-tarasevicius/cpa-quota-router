@@ -36,9 +36,10 @@ so it goes after every account whose clock is running.
 
 The weekly window decides the order because that's where quota is lost. The 5-hour window only
 caps speed. Its quota comes back within hours either way, so it is used only to step around an
-account that's about to throttle. Accounts that no longer have a 5-hour window, which Anthropic
-reports as `"five_hour": null`, are ranked on the weekly window alone, so one pool can hold both
-kinds.
+account that has used its window up, and not before: stepping around early would leave the end of
+the soonest-expiring account's window unused. Accounts that no longer have a 5-hour window, which
+Anthropic reports as `"five_hour": null`, are ranked on the weekly window alone, so one pool can
+hold both kinds.
 
 ## 3. Only new sessions move
 
@@ -76,8 +77,8 @@ to build and no packages to keep patched.
 
 | Number | Value | Why |
 | --- | --- | --- |
-| Interval | 5 minutes | Quick enough to step around an account before its 5-hour window fills; three accounts cost 36 usage calls an hour |
-| 5-hour ceiling | 90% | Moves new sessions off before the account starts throttling, while still using most of the window. Only accounts with a 5-hour window have one |
+| Interval | 5 minutes | Quick enough to step around an account soon after its 5-hour window fills, though the proxy's own cooldown already does that on the first 429; three accounts cost 36 usage calls an hour |
+| 5-hour ceiling | 100% | Keeps the soonest-expiring account on top until its 5-hour window is used up, so none of the window goes to waste. Only accounts with a 5-hour window have one |
 | Weekly ceiling | 99% | Treats an account that's effectively done as done |
 | Priority step | 10 | Leaves room to slot an account in by hand without renumbering the rest |
 | Used-up priority | -10 | Below the proxy's default of 0, so an unranked credential is still preferred over a used-up one |

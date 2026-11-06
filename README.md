@@ -35,8 +35,8 @@ The router is one Python file that runs next to the proxy. Every five minutes it
 1. asks the proxy's management API which Claude accounts it has;
 2. asks Anthropic how much of each account is used and when it resets (the same call as Claude
    Code's `/usage`);
-3. ranks the accounts: soonest weekly reset first, accounts near a 5-hour limit lower, used-up
-   accounts last;
+3. ranks the accounts: soonest weekly reset first, accounts that have used up their 5-hour window
+   lower, used-up accounts last;
 4. writes the ranking into each account's `priority` through the management API.
 
 CLIProxyAPI already sends every *new* session to the highest-priority account and keeps running
@@ -112,7 +112,7 @@ details, every option, upgrading and troubleshooting.
 | `--management-url` | `http://127.0.0.1:8317/v0/management` | Where the proxy's management API is |
 | `--interval` | `300` | Seconds between runs |
 | `--weekly-ceiling` | `99` | Weekly use (%) at which an account counts as used up |
-| `--five-hour-ceiling` | `90` | 5-hour use (%) at which an account drops below the ready ones; ignored for accounts without a 5-hour limit |
+| `--five-hour-ceiling` | `100` | 5-hour use (%) at which an account drops below the ready ones; at 100 it keeps its place until the window is used up. Ignored for accounts without a 5-hour limit |
 | `--once`, `--dry-run`, `--reset` | | Run once; log without changing anything; clear every priority |
 
 The full list, with environment variables, is in [Running it](docs/running-it.md#options).
